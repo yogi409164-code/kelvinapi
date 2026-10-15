@@ -1,11 +1,23 @@
 import { ApiException, fromHono } from "chanfana";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { tasksRouter } from "./endpoints/tasks/router";
+import { tablesRouter } from "./endpoints/tables/router";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import { DummyEndpoint } from "./endpoints/dummyEndpoint";
+import { LoginEndpoint } from "./endpoints/login";
 
 // Start a Hono app
 const app = new Hono<{ Bindings: Env }>();
+
+app.use(
+	"*",
+	cors({
+		origin: "*",
+		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowHeaders: ["Content-Type", "Authorization"],
+	}),
+);
 
 app.onError((err, c) => {
 	if (err instanceof ApiException) {
@@ -33,15 +45,17 @@ const openapi = fromHono(app, {
 	docs_url: "/",
 	schema: {
 		info: {
-			title: "My Awesome API",
+			title: "Kelvin Scale API",
 			version: "2.0.0",
-			description: "This is the documentation for my awesome API.",
+			description: "Login and billing tables for Kelvin Scale. The same base URL is used by web and Android.",
 		},
 	},
 });
 
 // Register Tasks Sub router
 openapi.route("/tasks", tasksRouter);
+openapi.route("/tables", tablesRouter);
+openapi.post("/login", LoginEndpoint);
 
 // Register other endpoints
 openapi.post("/dummy/:slug", DummyEndpoint);
