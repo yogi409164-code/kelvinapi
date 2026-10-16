@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { createToken, hashPassword } from "../auth";
+import { ensureLoginSchema } from "../setupDb";
 import { AppContext } from "../types";
 
 export class LoginEndpoint extends OpenAPIRoute {
@@ -44,6 +45,7 @@ export class LoginEndpoint extends OpenAPIRoute {
 	};
 
 	public async handle(c: AppContext) {
+		await ensureLoginSchema(c.env.DB);
 		const data = await this.getValidatedData<typeof this.schema>();
 		const email = data.body.email.trim().toLowerCase();
 		const passwordHash = await hashPassword(data.body.password);
