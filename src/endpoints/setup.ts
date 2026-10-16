@@ -45,7 +45,7 @@ export class SetupEndpoint extends OpenAPIRoute {
 			success: true,
 			result: {
 				...result,
-				message: "Login database is ready. Use /login with the biller email and password.",
+				message: "Login, table, and billing databases are ready. Use /login with the biller email and password.",
 			},
 		};
 	}

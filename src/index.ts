@@ -6,6 +6,7 @@ import { billsRouter } from "./endpoints/bills/router";
 import { LoginEndpoint } from "./endpoints/login";
 import { SetupEndpoint } from "./endpoints/setup";
 import { tablesRouter } from "./endpoints/tables/router";
+import { ensureLoginSchema } from "./setupDb";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -17,6 +18,13 @@ app.use(
 		allowHeaders: ["Content-Type", "Authorization"],
 	}),
 );
+
+app.use("*", async (c, next) => {
+	if (c.req.method !== "OPTIONS" && c.env.DB) {
+		await ensureLoginSchema(c.env.DB);
+	}
+	await next();
+});
 
 app.onError((err, c) => {
 	if (err instanceof ApiException) {
