@@ -100,14 +100,14 @@ export async function seedLoginData(
 			.run();
 	}
 
+	// Only seed dining tables when the floor is empty, so deleted tables stay deleted.
 	let tablesCreated = 0;
-	for (let index = 1; index <= tableCount; index += 1) {
-		const tableName = `T ${index}`;
-		const existing = await db
-			.prepare("SELECT id FROM tables WHERE name = ?")
-			.bind(tableName)
-			.first<{ id: number }>();
-		if (!existing) {
+	const existingTables = await db
+		.prepare("SELECT COUNT(*) AS total FROM tables")
+		.first<{ total: number }>();
+	if ((existingTables?.total ?? 0) === 0) {
+		for (let index = 1; index <= tableCount; index += 1) {
+			const tableName = `T ${index}`;
 			await db
 				.prepare("INSERT INTO tables (name, status, guests) VALUES (?, 'blank', 1)")
 				.bind(tableName)
