@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS tables (
 );
 
 INSERT INTO users (email, password_hash, name)
-SELECT 'biller@kelvinscale.com', '4ec8fe05a2d0b6d38312721656c14ff52f9b802696c42304b61a35eb6989cd18', 'biller'
+SELECT 'biller@kelvinscale.com', 'biller123', 'biller'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'biller@kelvinscale.com');
 
 INSERT INTO tables (name, status, guests)

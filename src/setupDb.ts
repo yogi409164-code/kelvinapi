@@ -1,4 +1,3 @@
-import { hashPassword } from "./auth";
 import type { AppContext } from "./types";
 
 const DEFAULT_EMAIL = "biller@kelvinscale.com";
@@ -12,7 +11,7 @@ export async function ensureLoginSchema(db: D1Database) {
 			`CREATE TABLE IF NOT EXISTS users (
 				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 				email TEXT NOT NULL UNIQUE,
-				password_hash TEXT NOT NULL,
+				password TEXT NOT NULL,
 				name TEXT NOT NULL
 			)`,
 		)
@@ -36,6 +35,17 @@ export async function ensureLoginSchema(db: D1Database) {
 			)`,
 		)
 		.run();
+
+	// Older installs used password_hash. Move that value into password when needed.
+	try {
+		const columns = await db.prepare("PRAGMA table_info(users)").all<{ name: string }>();
+		const names = new Set((columns.results ?? []).map((column) => column.name));
+		if (names.has("password_hash") && !names.has("password")) {
+			await db.prepare("ALTER TABLE users RENAME COLUMN password_hash TO password").run();
+		}
+	} catch {
+		// Ignore when the column is already renamed or PRAGMA is unavailable.
+	}
 }
 
 export async function seedLoginData(
@@ -51,7 +61,6 @@ export async function seedLoginData(
 	const password = options?.password ?? DEFAULT_PASSWORD;
 	const name = options?.name ?? DEFAULT_NAME;
 	const tableCount = Math.max(1, Math.min(options?.tableCount ?? DEFAULT_TABLE_COUNT, 50));
-	const passwordHash = await hashPassword(password);
 
 	const existingUser = await db
 		.prepare("SELECT id FROM users WHERE email = ?")
@@ -61,10 +70,15 @@ export async function seedLoginData(
 	let userCreated = false;
 	if (!existingUser) {
 		await db
-			.prepare("INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)")
-			.bind(email, passwordHash, name)
+			.prepare("INSERT INTO users (email, password, name) VALUES (?, ?, ?)")
+			.bind(email, password, name)
 			.run();
 		userCreated = true;
+	} else {
+		await db
+			.prepare("UPDATE users SET password = ?, name = ? WHERE email = ?")
+			.bind(password, name, email)
+			.run();
 	}
 
 	let tablesCreated = 0;

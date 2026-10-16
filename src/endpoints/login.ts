@@ -1,6 +1,6 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
-import { createToken, hashPassword } from "../auth";
+import { createToken } from "../auth";
 import { ensureLoginSchema } from "../setupDb";
 import { AppContext } from "../types";
 
@@ -48,14 +48,14 @@ export class LoginEndpoint extends OpenAPIRoute {
 		await ensureLoginSchema(c.env.DB);
 		const data = await this.getValidatedData<typeof this.schema>();
 		const email = data.body.email.trim().toLowerCase();
-		const passwordHash = await hashPassword(data.body.password);
+		const password = data.body.password;
 		const user = await c.env.DB.prepare(
-			"SELECT id, email, name, password_hash FROM users WHERE email = ?",
+			"SELECT id, email, name, password FROM users WHERE email = ?",
 		)
 			.bind(email)
-			.first<{ id: number; email: string; name: string; password_hash: string }>();
+			.first<{ id: number; email: string; name: string; password: string }>();
 
-		if (!user || user.password_hash !== passwordHash) {
+		if (!user || user.password !== password) {
 			return c.json(
 				{
 					success: false,
