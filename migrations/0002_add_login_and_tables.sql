@@ -24,9 +24,22 @@ SELECT 'biller@kelvinscale.com', '4ec8fe05a2d0b6d38312721656c14ff52f9b802696c423
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'biller@kelvinscale.com');
 
 INSERT INTO tables (name, status, guests)
-SELECT 'T ' || n, 'blank', 1
-FROM (
-    SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-    UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
-)
-WHERE NOT EXISTS (SELECT 1 FROM tables);
+SELECT 'T 1', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 1');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 2', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 2');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 3', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 3');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 4', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 4');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 5', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 5');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 6', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 6');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 7', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 7');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 8', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 8');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 9', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 9');
+INSERT INTO tables (name, status, guests)
+SELECT 'T 10', 'blank', 1 WHERE NOT EXISTS (SELECT 1 FROM tables WHERE name = 'T 10');
