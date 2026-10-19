@@ -143,14 +143,21 @@ export async function ensureBranches(db: D1Database) {
 			.bind(account.email)
 			.first<{ id: number }>();
 		if (!existing) {
-			await db
-				.prepare("INSERT INTO users (email, password, name, branch_id) VALUES (?, ?, ?, ?)")
-				.bind(account.email, account.password, account.name, branch.id)
-				.run();
+			try {
+				await db
+					.prepare("INSERT INTO users (email, password, name, branch_id) VALUES (?, ?, ?, ?)")
+					.bind(account.email, account.password, account.name, branch.id)
+					.run();
+			} catch {
+				await db
+					.prepare("UPDATE users SET password = ?, name = ?, branch_id = ? WHERE email = ?")
+					.bind(account.password, account.name, branch.id, account.email)
+					.run();
+			}
 		} else {
 			await db
-				.prepare("UPDATE users SET branch_id = ? WHERE email = ? AND branch_id IS NULL")
-				.bind(branch.id, account.email)
+				.prepare("UPDATE users SET password = ?, name = ?, branch_id = ? WHERE email = ?")
+				.bind(account.password, account.name, branch.id, account.email)
 				.run();
 		}
 	}

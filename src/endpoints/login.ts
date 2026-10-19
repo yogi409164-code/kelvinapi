@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { createToken } from "../auth";
+import { primaryDb } from "../db";
 import { ensureLoginSchema } from "../setupDb";
 import { AppContext } from "../types";
 
@@ -48,11 +49,12 @@ export class LoginEndpoint extends OpenAPIRoute {
 	};
 
 	public async handle(c: AppContext) {
-		await ensureLoginSchema(c.env.DB);
+		const db = primaryDb(c.env.DB);
+		await ensureLoginSchema(db);
 		const data = await this.getValidatedData<typeof this.schema>();
 		const email = data.body.email.trim().toLowerCase();
 		const password = data.body.password;
-		const user = await c.env.DB.prepare(
+		const user = await db.prepare(
 			`SELECT users.id AS id, users.email AS email, users.name AS name, users.password AS password,
 			        users.branch_id AS branchId, branches.name AS branchName, branches.code AS branchCode
 			 FROM users
@@ -81,7 +83,7 @@ export class LoginEndpoint extends OpenAPIRoute {
 		}
 
 		const token = createToken();
-		await c.env.DB.prepare(
+		await db.prepare(
 			"INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
 		)
 			.bind(token, user.id, new Date().toISOString())

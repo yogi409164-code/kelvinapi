@@ -6,6 +6,7 @@ import { billsRouter } from "./endpoints/bills/router";
 import { LoginEndpoint } from "./endpoints/login";
 import { SetupEndpoint } from "./endpoints/setup";
 import { tablesRouter } from "./endpoints/tables/router";
+import { primaryDb } from "./db";
 import { ensureLoginSchema } from "./setupDb";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -21,7 +22,7 @@ app.use(
 
 app.use("*", async (c, next) => {
 	if (c.req.method !== "OPTIONS" && c.env.DB) {
-		await ensureLoginSchema(c.env.DB);
+		await ensureLoginSchema(primaryDb(c.env.DB));
 	}
 	await next();
 });

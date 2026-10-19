@@ -1,3 +1,4 @@
+import { primaryDb } from "./db";
 import { AppContext } from "./types";
 
 export function createToken() {
@@ -22,7 +23,7 @@ export async function requireUser(c: AppContext): Promise<AuthUser | null> {
 		return null;
 	}
 
-	const row = await c.env.DB.prepare(
+	const row = await primaryDb(c.env.DB).prepare(
 		`SELECT users.id AS id, users.email AS email, users.name AS name,
 		        users.branch_id AS branchId, branches.name AS branchName, branches.code AS branchCode
 		 FROM sessions
