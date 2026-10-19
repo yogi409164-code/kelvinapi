@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { tableSchema, TableRow } from "./base";
 
@@ -35,12 +36,13 @@ export class TableCreate extends OpenAPIRoute {
 
 		const data = await this.getValidatedData<typeof this.schema>();
 		const name = data.body.name.trim();
-		const inserted = await c.env.DB.prepare(
+		const db = primaryDb(c.env.DB);
+		const inserted = await db.prepare(
 			"INSERT INTO tables (name, status, guests) VALUES (?, 'blank', 1)",
 		)
 			.bind(name)
 			.run();
-		const row = await c.env.DB.prepare(
+		const row = await db.prepare(
 			"SELECT id, name, status, guests FROM tables WHERE id = ?",
 		)
 			.bind(inserted.meta.last_row_id)

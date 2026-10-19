@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { billSchema, BillRow, mapBill } from "./base";
 
@@ -49,7 +50,7 @@ export class BillList extends OpenAPIRoute {
 		}
 		query += " ORDER BY id DESC";
 
-		const listed = await c.env.DB.prepare(query)
+		const listed = await primaryDb(c.env.DB).prepare(query)
 			.bind(...binds)
 			.all<BillRow>();
 

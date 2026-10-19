@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { billPayment, billSchema, billStatus, billType, cartLineSchema, BillRow, mapBill } from "./base";
 
@@ -46,7 +47,8 @@ export class BillUpdate extends OpenAPIRoute {
 		}
 
 		const data = await this.getValidatedData<typeof this.schema>();
-		const current = await c.env.DB.prepare("SELECT * FROM bills WHERE id = ?")
+		const db = primaryDb(c.env.DB);
+		const current = await db.prepare("SELECT * FROM bills WHERE id = ?")
 			.bind(data.params.id)
 			.first<BillRow>();
 		if (!current) {
@@ -69,7 +71,7 @@ export class BillUpdate extends OpenAPIRoute {
 			tax_rate: data.body.taxRate ?? current.tax_rate,
 		};
 
-		await c.env.DB.prepare(
+		await db.prepare(
 			`UPDATE bills SET
 				type = ?, table_id = ?, table_name = ?, customer_phone = ?, customer_name = ?,
 				payment = ?, status = ?, lines_json = ?, discount = ?, tax_rate = ?
@@ -90,7 +92,7 @@ export class BillUpdate extends OpenAPIRoute {
 			)
 			.run();
 
-		const row = await c.env.DB.prepare("SELECT * FROM bills WHERE id = ?")
+		const row = await db.prepare("SELECT * FROM bills WHERE id = ?")
 			.bind(current.id)
 			.first<BillRow>();
 

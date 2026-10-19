@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { billPayment, billSchema, billStatus, billType, cartLineSchema, BillRow, mapBill } from "./base";
 
@@ -46,7 +47,8 @@ export class BillCreate extends OpenAPIRoute {
 
 		const data = await this.getValidatedData<typeof this.schema>();
 		const createdAt = data.body.createdAt ?? new Date().toISOString();
-		const inserted = await c.env.DB.prepare(
+		const db = primaryDb(c.env.DB);
+		const inserted = await db.prepare(
 			`INSERT INTO bills (
 				order_no, type, table_id, table_name, customer_phone, customer_name,
 				payment, status, lines_json, discount, tax_rate, created_at
@@ -68,7 +70,7 @@ export class BillCreate extends OpenAPIRoute {
 			)
 			.run();
 
-		const row = await c.env.DB.prepare("SELECT * FROM bills WHERE id = ?")
+		const row = await db.prepare("SELECT * FROM bills WHERE id = ?")
 			.bind(inserted.meta.last_row_id)
 			.first<BillRow>();
 

@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { tableSchema, TableRow } from "./base";
 
@@ -33,7 +34,7 @@ export class TableList extends OpenAPIRoute {
 			return c.json(unauthorized(), 401);
 		}
 
-		const listed = await c.env.DB.prepare(
+		const listed = await primaryDb(c.env.DB).prepare(
 			"SELECT id, name, status, guests FROM tables ORDER BY id",
 		).all<TableRow>();
 

@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { tableSchema, TableRow } from "./base";
 
@@ -32,7 +33,8 @@ export class TableDelete extends OpenAPIRoute {
 		}
 
 		const data = await this.getValidatedData<typeof this.schema>();
-		const current = await c.env.DB.prepare(
+		const db = primaryDb(c.env.DB);
+		const current = await db.prepare(
 			"SELECT id, name, status, guests FROM tables WHERE id = ?",
 		)
 			.bind(data.params.id)
@@ -53,7 +55,7 @@ export class TableDelete extends OpenAPIRoute {
 			);
 		}
 
-		const count = await c.env.DB.prepare("SELECT COUNT(*) AS total FROM tables").first<{ total: number }>();
+		const count = await db.prepare("SELECT COUNT(*) AS total FROM tables").first<{ total: number }>();
 		if ((count?.total ?? 0) <= 1) {
 			return c.json(
 				{ success: false, errors: [{ code: 4091, message: "Keep at least one table" }] },
@@ -61,7 +63,7 @@ export class TableDelete extends OpenAPIRoute {
 			);
 		}
 
-		await c.env.DB.prepare("DELETE FROM tables WHERE id = ?").bind(current.id).run();
+		await db.prepare("DELETE FROM tables WHERE id = ?").bind(current.id).run();
 		return { success: true, result: current };
 	}
 }

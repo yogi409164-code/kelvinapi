@@ -1,6 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import { z } from "zod";
 import { requireUser, unauthorized } from "../../auth";
+import { primaryDb } from "../../db";
 import { AppContext } from "../../types";
 import { tableSchema, tableStatus, TableRow } from "./base";
 
@@ -39,7 +40,8 @@ export class TableUpdate extends OpenAPIRoute {
 		}
 
 		const data = await this.getValidatedData<typeof this.schema>();
-		const current = await c.env.DB.prepare(
+		const db = primaryDb(c.env.DB);
+		const current = await db.prepare(
 			"SELECT id, name, status, guests FROM tables WHERE id = ?",
 		)
 			.bind(data.params.id)
@@ -54,7 +56,7 @@ export class TableUpdate extends OpenAPIRoute {
 		const name = data.body.name?.trim() || current.name;
 		const status = data.body.status ?? current.status;
 		const guests = data.body.guests ?? current.guests;
-		await c.env.DB.prepare(
+		await db.prepare(
 			"UPDATE tables SET name = ?, status = ?, guests = ? WHERE id = ?",
 		)
 			.bind(name, status, guests, current.id)
