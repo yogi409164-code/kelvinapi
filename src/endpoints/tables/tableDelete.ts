@@ -35,9 +35,9 @@ export class TableDelete extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const db = primaryDb(c.env.DB);
 		const current = await db.prepare(
-			"SELECT id, name, status, guests FROM tables WHERE id = ?",
+			"SELECT id, name, status, guests FROM tables WHERE id = ? AND branch_id = ?",
 		)
-			.bind(data.params.id)
+			.bind(data.params.id, user.branchId)
 			.first<TableRow>();
 		if (!current) {
 			return c.json(
@@ -55,7 +55,10 @@ export class TableDelete extends OpenAPIRoute {
 			);
 		}
 
-		const count = await db.prepare("SELECT COUNT(*) AS total FROM tables").first<{ total: number }>();
+		const count = await db
+			.prepare("SELECT COUNT(*) AS total FROM tables WHERE branch_id = ?")
+			.bind(user.branchId)
+			.first<{ total: number }>();
 		if ((count?.total ?? 0) <= 1) {
 			return c.json(
 				{ success: false, errors: [{ code: 4091, message: "Keep at least one table" }] },
@@ -63,7 +66,7 @@ export class TableDelete extends OpenAPIRoute {
 			);
 		}
 
-		await db.prepare("DELETE FROM tables WHERE id = ?").bind(current.id).run();
+		await db.prepare("DELETE FROM tables WHERE id = ? AND branch_id = ?").bind(current.id, user.branchId).run();
 		return { success: true, result: current };
 	}
 }

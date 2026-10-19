@@ -33,11 +33,17 @@ export class BillList extends OpenAPIRoute {
 			return c.json(unauthorized(), 401);
 		}
 
+		if (!user.branchId) {
+			return { success: true, result: [] };
+		}
+
 		const data = await this.getValidatedData<typeof this.schema>();
 		let query = "SELECT * FROM bills";
 		const binds: (number | string)[] = [];
 		const filters: string[] = [];
 
+		filters.push("branch_id = ?");
+		binds.push(user.branchId);
 		if (data.query.tableId) {
 			filters.push("table_id = ?");
 			binds.push(data.query.tableId);

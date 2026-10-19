@@ -34,9 +34,15 @@ export class TableList extends OpenAPIRoute {
 			return c.json(unauthorized(), 401);
 		}
 
+		if (!user.branchId) {
+			return { success: true, result: [] };
+		}
+
 		const listed = await primaryDb(c.env.DB).prepare(
-			"SELECT id, name, status, guests FROM tables ORDER BY id",
-		).all<TableRow>();
+			"SELECT id, name, status, guests FROM tables WHERE branch_id = ? ORDER BY id",
+		)
+			.bind(user.branchId)
+			.all<TableRow>();
 
 		return {
 			success: true,

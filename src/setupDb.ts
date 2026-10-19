@@ -54,6 +54,19 @@ export async function ensureLoginSchema(db: D1Database) {
 			)`,
 		)
 		.run();
+	await db
+		.prepare(
+			`CREATE TABLE IF NOT EXISTS branches (
+				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+				code TEXT NOT NULL UNIQUE,
+				name TEXT NOT NULL
+			)`,
+		)
+		.run();
+
+	await addColumn(db, "users", "branch_id", "INTEGER");
+	await addColumn(db, "tables", "branch_id", "INTEGER");
+	await addColumn(db, "bills", "branch_id", "INTEGER");
 
 	// Older installs used password_hash. Move that value into password when needed.
 	try {
@@ -64,6 +77,105 @@ export async function ensureLoginSchema(db: D1Database) {
 		}
 	} catch {
 		// Ignore when the column is already renamed or PRAGMA is unavailable.
+	}
+
+	await ensureBranches(db);
+}
+
+const BRANCHES = [
+	{ code: "vizag", name: "Vizag" },
+	{ code: "vzm", name: "VZM" },
+	{ code: "muduwada", name: "Muduwada" },
+] as const;
+
+const BRANCH_USERS = [
+	{ email: "biller@kelvinscale.com", password: "biller123", name: "biller", code: "vizag" },
+	{ email: "vizag@kelvinscale.com", password: "vizag123", name: "Vizag", code: "vizag" },
+	{ email: "vzm@kelvinscale.com", password: "vzm12345", name: "VZM", code: "vzm" },
+	{ email: "muduwada@kelvinscale.com", password: "mudu1234", name: "Muduwada", code: "muduwada" },
+] as const;
+
+async function columnNames(db: D1Database, table: string) {
+	const columns = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+	return new Set((columns.results ?? []).map((column) => column.name));
+}
+
+async function addColumn(db: D1Database, table: string, column: string, definition: string) {
+	const names = await columnNames(db, table);
+	if (!names.has(column)) {
+		await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+	}
+}
+
+export async function ensureBranches(db: D1Database) {
+	for (const branch of BRANCHES) {
+		await db
+			.prepare(
+				`INSERT INTO branches (code, name)
+				 SELECT ?, ?
+				 WHERE NOT EXISTS (SELECT 1 FROM branches WHERE code = ?)`,
+			)
+			.bind(branch.code, branch.name, branch.code)
+			.run();
+	}
+
+	const vizag = await db
+		.prepare("SELECT id FROM branches WHERE code = 'vizag'")
+		.first<{ id: number }>();
+	if (!vizag) {
+		return;
+	}
+
+	await db.prepare("UPDATE users SET branch_id = ? WHERE branch_id IS NULL").bind(vizag.id).run();
+	await db.prepare("UPDATE tables SET branch_id = ? WHERE branch_id IS NULL").bind(vizag.id).run();
+	await db.prepare("UPDATE bills SET branch_id = ? WHERE branch_id IS NULL").bind(vizag.id).run();
+
+	for (const account of BRANCH_USERS) {
+		const branch = await db
+			.prepare("SELECT id FROM branches WHERE code = ?")
+			.bind(account.code)
+			.first<{ id: number }>();
+		if (!branch) {
+			continue;
+		}
+		const existing = await db
+			.prepare("SELECT id FROM users WHERE email = ?")
+			.bind(account.email)
+			.first<{ id: number }>();
+		if (!existing) {
+			await db
+				.prepare("INSERT INTO users (email, password, name, branch_id) VALUES (?, ?, ?, ?)")
+				.bind(account.email, account.password, account.name, branch.id)
+				.run();
+		} else {
+			await db
+				.prepare("UPDATE users SET branch_id = ? WHERE email = ? AND branch_id IS NULL")
+				.bind(branch.id, account.email)
+				.run();
+		}
+	}
+
+	for (const branch of BRANCHES) {
+		const row = await db
+			.prepare("SELECT id FROM branches WHERE code = ?")
+			.bind(branch.code)
+			.first<{ id: number }>();
+		if (!row) {
+			continue;
+		}
+		const count = await db
+			.prepare("SELECT COUNT(*) AS total FROM tables WHERE branch_id = ?")
+			.bind(row.id)
+			.first<{ total: number }>();
+		if ((count?.total ?? 0) > 0) {
+			continue;
+		}
+		for (let index = 1; index <= DEFAULT_TABLE_COUNT; index += 1) {
+			await db
+				.prepare("INSERT INTO tables (name, status, guests, branch_id) VALUES (?, 'blank', 1, ?)")
+				.bind(`T ${index}`, row.id)
+				.run();
+		}
 	}
 }
 

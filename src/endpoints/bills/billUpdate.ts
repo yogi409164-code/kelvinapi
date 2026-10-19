@@ -48,14 +48,27 @@ export class BillUpdate extends OpenAPIRoute {
 
 		const data = await this.getValidatedData<typeof this.schema>();
 		const db = primaryDb(c.env.DB);
-		const current = await db.prepare("SELECT * FROM bills WHERE id = ?")
-			.bind(data.params.id)
+		const current = await db.prepare("SELECT * FROM bills WHERE id = ? AND branch_id = ?")
+			.bind(data.params.id, user.branchId)
 			.first<BillRow>();
 		if (!current) {
 			return c.json(
 				{ success: false, errors: [{ code: 4040, message: "Bill not found" }] },
 				404,
 			);
+		}
+
+		if (data.body.tableId != null) {
+			const table = await db
+				.prepare("SELECT id FROM tables WHERE id = ? AND branch_id = ?")
+				.bind(data.body.tableId, user.branchId)
+				.first<{ id: number }>();
+			if (!table) {
+				return c.json(
+					{ success: false, errors: [{ code: 4040, message: "Table not found for this branch" }] },
+					404,
+				);
+			}
 		}
 
 		const next = {
@@ -75,7 +88,7 @@ export class BillUpdate extends OpenAPIRoute {
 			`UPDATE bills SET
 				type = ?, table_id = ?, table_name = ?, customer_phone = ?, customer_name = ?,
 				payment = ?, status = ?, lines_json = ?, discount = ?, tax_rate = ?
-			 WHERE id = ?`,
+			 WHERE id = ? AND branch_id = ?`,
 		)
 			.bind(
 				next.type,
@@ -89,6 +102,7 @@ export class BillUpdate extends OpenAPIRoute {
 				next.discount,
 				next.tax_rate,
 				current.id,
+				user.branchId,
 			)
 			.run();
 

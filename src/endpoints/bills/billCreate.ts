@@ -45,14 +45,33 @@ export class BillCreate extends OpenAPIRoute {
 			return c.json(unauthorized(), 401);
 		}
 
+		if (!user.branchId) {
+			return c.json(
+				{ success: false, errors: [{ code: 4030, message: "This login is not assigned to a branch" }] },
+				403,
+			);
+		}
+
 		const data = await this.getValidatedData<typeof this.schema>();
 		const createdAt = data.body.createdAt ?? new Date().toISOString();
 		const db = primaryDb(c.env.DB);
+		if (data.body.tableId != null) {
+			const table = await db
+				.prepare("SELECT id FROM tables WHERE id = ? AND branch_id = ?")
+				.bind(data.body.tableId, user.branchId)
+				.first<{ id: number }>();
+			if (!table) {
+				return c.json(
+					{ success: false, errors: [{ code: 4040, message: "Table not found for this branch" }] },
+					404,
+				);
+			}
+		}
 		const inserted = await db.prepare(
 			`INSERT INTO bills (
 				order_no, type, table_id, table_name, customer_phone, customer_name,
-				payment, status, lines_json, discount, tax_rate, created_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				payment, status, lines_json, discount, tax_rate, created_at, branch_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		)
 			.bind(
 				data.body.orderNo,
@@ -67,6 +86,7 @@ export class BillCreate extends OpenAPIRoute {
 				data.body.discount,
 				data.body.taxRate,
 				createdAt,
+				user.branchId,
 			)
 			.run();
 

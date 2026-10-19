@@ -34,13 +34,20 @@ export class TableCreate extends OpenAPIRoute {
 			return c.json(unauthorized(), 401);
 		}
 
+		if (!user.branchId) {
+			return c.json(
+				{ success: false, errors: [{ code: 4030, message: "This login is not assigned to a branch" }] },
+				403,
+			);
+		}
+
 		const data = await this.getValidatedData<typeof this.schema>();
 		const name = data.body.name.trim();
 		const db = primaryDb(c.env.DB);
 		const inserted = await db.prepare(
-			"INSERT INTO tables (name, status, guests) VALUES (?, 'blank', 1)",
+			"INSERT INTO tables (name, status, guests, branch_id) VALUES (?, 'blank', 1, ?)",
 		)
-			.bind(name)
+			.bind(name, user.branchId)
 			.run();
 		const row = await db.prepare(
 			"SELECT id, name, status, guests FROM tables WHERE id = ?",

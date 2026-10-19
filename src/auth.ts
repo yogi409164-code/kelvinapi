@@ -10,6 +10,9 @@ export type AuthUser = {
 	id: number;
 	email: string;
 	name: string;
+	branchId: number | null;
+	branchName: string | null;
+	branchCode: string | null;
 };
 
 export async function requireUser(c: AppContext): Promise<AuthUser | null> {
@@ -20,9 +23,11 @@ export async function requireUser(c: AppContext): Promise<AuthUser | null> {
 	}
 
 	const row = await c.env.DB.prepare(
-		`SELECT users.id AS id, users.email AS email, users.name AS name
+		`SELECT users.id AS id, users.email AS email, users.name AS name,
+		        users.branch_id AS branchId, branches.name AS branchName, branches.code AS branchCode
 		 FROM sessions
 		 JOIN users ON users.id = sessions.user_id
+		 LEFT JOIN branches ON branches.id = users.branch_id
 		 WHERE sessions.token = ?`,
 	)
 		.bind(token)

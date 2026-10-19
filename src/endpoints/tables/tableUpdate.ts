@@ -42,9 +42,9 @@ export class TableUpdate extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const db = primaryDb(c.env.DB);
 		const current = await db.prepare(
-			"SELECT id, name, status, guests FROM tables WHERE id = ?",
+			"SELECT id, name, status, guests FROM tables WHERE id = ? AND branch_id = ?",
 		)
-			.bind(data.params.id)
+			.bind(data.params.id, user.branchId)
 			.first<TableRow>();
 		if (!current) {
 			return c.json(
@@ -57,9 +57,9 @@ export class TableUpdate extends OpenAPIRoute {
 		const status = data.body.status ?? current.status;
 		const guests = data.body.guests ?? current.guests;
 		await db.prepare(
-			"UPDATE tables SET name = ?, status = ?, guests = ? WHERE id = ?",
+			"UPDATE tables SET name = ?, status = ?, guests = ? WHERE id = ? AND branch_id = ?",
 		)
-			.bind(name, status, guests, current.id)
+			.bind(name, status, guests, current.id, user.branchId)
 			.run();
 
 		return {
