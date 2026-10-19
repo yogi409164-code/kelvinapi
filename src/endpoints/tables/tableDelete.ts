@@ -45,27 +45,15 @@ export class TableDelete extends OpenAPIRoute {
 				404,
 			);
 		}
-		if (current.status === "running" || current.status === "printed" || current.status === "runningKot") {
-			return c.json(
-				{
-					success: false,
-					errors: [{ code: 4090, message: "Finish or move the open order before removing this table" }],
-				},
-				409,
-			);
-		}
 
-		const count = await db
-			.prepare("SELECT COUNT(*) AS total FROM tables WHERE branch_id = ?")
-			.bind(user.branchId)
-			.first<{ total: number }>();
-		if ((count?.total ?? 0) <= 1) {
-			return c.json(
-				{ success: false, errors: [{ code: 4091, message: "Keep at least one table" }] },
-				409,
-			);
-		}
-
+		await db
+			.prepare(
+				`UPDATE bills
+				 SET status = 'cancelled'
+				 WHERE table_id = ? AND branch_id = ? AND status NOT IN ('paid', 'cancelled')`,
+			)
+			.bind(current.id, user.branchId)
+			.run();
 		await db.prepare("DELETE FROM tables WHERE id = ? AND branch_id = ?").bind(current.id, user.branchId).run();
 		return { success: true, result: current };
 	}

@@ -16,7 +16,6 @@ describe("Login API", () => {
 		expect(setupResponse.status).toBe(200);
 		expect(setupBody.success).toBe(true);
 		expect(setupBody.result.email).toBe("biller@kelvinscale.com");
-		expect(setupBody.result.tableCount).toBeGreaterThanOrEqual(10);
 
 		const loginResponse = await SELF.fetch("http://local.test/login", {
 			method: "POST",
@@ -42,12 +41,55 @@ describe("Login API", () => {
 		});
 		const tablesBody = await tablesResponse.json<{
 			success: boolean;
-			result: { name: string }[];
+			result: { id: number; name: string }[];
 		}>();
 
 		expect(tablesResponse.status).toBe(200);
 		expect(tablesBody.success).toBe(true);
-		expect(tablesBody.result.some((table) => table.name === "T 1")).toBe(true);
+
+		for (const table of tablesBody.result) {
+			if (table.name === "T 7") {
+				const removed = await SELF.fetch(`http://local.test/tables/${table.id}`, {
+					method: "DELETE",
+					headers: { Authorization: `Bearer ${loginBody.result.token}` },
+				});
+				expect(removed.status).toBe(200);
+			}
+		}
+
+		const createdResponse = await SELF.fetch("http://local.test/tables", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${loginBody.result.token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ name: "T 7" }),
+		});
+		const createdBody = await createdResponse.json<{ success: boolean; result: { id: number; name: string } }>();
+		expect(createdResponse.status).toBe(201);
+		expect(createdBody.result.name).toBe("T 7");
+
+		const duplicateResponse = await SELF.fetch("http://local.test/tables", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${loginBody.result.token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ name: "T 7" }),
+		});
+		expect(duplicateResponse.status).toBe(409);
+
+		const deleteResponse = await SELF.fetch(`http://local.test/tables/${createdBody.result.id}`, {
+			method: "DELETE",
+			headers: { Authorization: `Bearer ${loginBody.result.token}` },
+		});
+		expect(deleteResponse.status).toBe(200);
+
+		const afterDelete = await SELF.fetch("http://local.test/tables", {
+			headers: { Authorization: `Bearer ${loginBody.result.token}` },
+		});
+		const afterBody = await afterDelete.json<{ success: boolean; result: { id: number; name: string }[] }>();
+		expect(afterBody.result.some((table) => table.id === createdBody.result.id || table.name === "T 7")).toBe(false);
 	});
 
 	it("shows only the signed-in branch", async () => {

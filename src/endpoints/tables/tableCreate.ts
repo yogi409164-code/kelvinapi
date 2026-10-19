@@ -44,6 +44,16 @@ export class TableCreate extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const name = data.body.name.trim();
 		const db = primaryDb(c.env.DB);
+		const duplicate = await db
+			.prepare("SELECT id FROM tables WHERE branch_id = ? AND name = ?")
+			.bind(user.branchId, name)
+			.first<{ id: number }>();
+		if (duplicate) {
+			return c.json(
+				{ success: false, errors: [{ code: 4092, message: `${name} is already on this floor` }] },
+				409,
+			);
+		}
 		const inserted = await db.prepare(
 			"INSERT INTO tables (name, status, guests, branch_id) VALUES (?, 'blank', 1, ?)",
 		)

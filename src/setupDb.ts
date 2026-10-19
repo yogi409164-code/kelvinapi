@@ -3,7 +3,6 @@ import type { AppContext } from "./types";
 const DEFAULT_EMAIL = "biller@kelvinscale.com";
 const DEFAULT_PASSWORD = "biller123";
 const DEFAULT_NAME = "biller";
-const DEFAULT_TABLE_COUNT = 10;
 
 export async function ensureLoginSchema(db: D1Database) {
 	await db
@@ -129,6 +128,7 @@ export async function ensureBranches(db: D1Database) {
 	await db.prepare("UPDATE users SET branch_id = ? WHERE branch_id IS NULL").bind(vizag.id).run();
 	await db.prepare("UPDATE tables SET branch_id = ? WHERE branch_id IS NULL").bind(vizag.id).run();
 	await db.prepare("UPDATE bills SET branch_id = ? WHERE branch_id IS NULL").bind(vizag.id).run();
+	await removeDuplicateTables(db);
 
 	for (const account of BRANCH_USERS) {
 		const branch = await db
@@ -162,27 +162,19 @@ export async function ensureBranches(db: D1Database) {
 		}
 	}
 
-	for (const branch of BRANCHES) {
-		const row = await db
-			.prepare("SELECT id FROM branches WHERE code = ?")
-			.bind(branch.code)
-			.first<{ id: number }>();
-		if (!row) {
-			continue;
-		}
-		const count = await db
-			.prepare("SELECT COUNT(*) AS total FROM tables WHERE branch_id = ?")
-			.bind(row.id)
-			.first<{ total: number }>();
-		if ((count?.total ?? 0) > 0) {
-			continue;
-		}
-		for (let index = 1; index <= DEFAULT_TABLE_COUNT; index += 1) {
-			await db
-				.prepare("INSERT INTO tables (name, status, guests, branch_id) VALUES (?, 'blank', 1, ?)")
-				.bind(`T ${index}`, row.id)
-				.run();
-		}
+}
+
+async function removeDuplicateTables(db: D1Database) {
+	const duplicates = await db
+		.prepare(
+			`SELECT id FROM tables
+			 WHERE id NOT IN (
+				SELECT MIN(id) FROM tables GROUP BY branch_id, name
+			 )`,
+		)
+		.all<{ id: number }>();
+	for (const row of duplicates.results ?? []) {
+		await db.prepare("DELETE FROM tables WHERE id = ?").bind(row.id).run();
 	}
 }
 
@@ -198,8 +190,6 @@ export async function seedLoginData(
 	const email = (options?.email ?? DEFAULT_EMAIL).trim().toLowerCase();
 	const password = options?.password ?? DEFAULT_PASSWORD;
 	const name = options?.name ?? DEFAULT_NAME;
-	const tableCount = Math.max(1, Math.min(options?.tableCount ?? DEFAULT_TABLE_COUNT, 50));
-
 	const existingUser = await db
 		.prepare("SELECT id FROM users WHERE email = ?")
 		.bind(email)
@@ -219,22 +209,6 @@ export async function seedLoginData(
 			.run();
 	}
 
-	// Only seed dining tables when the floor is empty, so deleted tables stay deleted.
-	let tablesCreated = 0;
-	const existingTables = await db
-		.prepare("SELECT COUNT(*) AS total FROM tables")
-		.first<{ total: number }>();
-	if ((existingTables?.total ?? 0) === 0) {
-		for (let index = 1; index <= tableCount; index += 1) {
-			const tableName = `T ${index}`;
-			await db
-				.prepare("INSERT INTO tables (name, status, guests) VALUES (?, 'blank', 1)")
-				.bind(tableName)
-				.run();
-			tablesCreated += 1;
-		}
-	}
-
 	const users = await db.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>();
 	const tables = await db.prepare("SELECT COUNT(*) AS total FROM tables").first<{ total: number }>();
 
@@ -242,7 +216,7 @@ export async function seedLoginData(
 		email,
 		name,
 		userCreated,
-		tablesCreated,
+		tablesCreated: 0,
 		userCount: users?.total ?? 0,
 		tableCount: tables?.total ?? 0,
 	};
